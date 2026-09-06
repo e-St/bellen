@@ -122,6 +122,17 @@
     .status.err { border-color: var(--err); color: var(--err); }
     .status a { color: var(--accent); word-break: break-all; }
     footer { margin-top: 2rem; color: var(--muted); font-size: 0.9rem; }
+    .safe {
+      margin-top: 1.25rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.7rem 0.95rem 0.85rem;
+      background: var(--card);
+    }
+    .safe summary { cursor: pointer; font-weight: 600; }
+    .safe .body { margin-top: 0.75rem; }
+    .safe .body p { margin: 0.55rem 0; }
+    .safe .body code { font-family: var(--mono); font-size: 0.88em; background: #ece6db; padding: 0.05em 0.35em; border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -172,6 +183,15 @@
       <button type="submit" id="go">Create PR</button>
     </form>
     <div id="status" class="status" hidden></div>
+    <details class="safe">
+      <summary>Why your PAT is safe on this page.</summary>
+      <div class="body">
+        <p>This site is static GitHub Pages with no server of ours, so the token is never stored, logged, or sent to e-St.</p>
+        <p>Your browser talks only to <code>api.github.com</code>, and only to open a branch and pull request on the control repo you named.</p>
+        <p>Use a fine-grained token limited to that one repo (Contents + Pull requests) with a short expiry, then revoke it once the PR exists.</p>
+        <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, and <code>.devcontainer/{devcontainer.json,on-create.sh,post-start.sh}</code> with <code>containerEnv.REPOS</code> set to your product <code>owner/name</code> list and <code>PLATFORM=/workspaces/platform</code>, push, and open a PR into <code>main</code>. The template already includes <code>after-mastart-pr.yml</code>, which amends that PR the same way. You can also add those files in GitHub’s web editor on a new branch. The easy path above is optional.</p>
+      </div>
+    </details>
     <footer>
       Template and docs: <a href="https://github.com/e-St/bellen">github.com/e-St/bellen</a><br>
       MIT License · Copyright (c) 2025–2026 e-St ·
