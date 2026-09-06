@@ -143,10 +143,13 @@ The App must be installed on the control repo **and** each product repo so Actio
 bellen/
 ├── README.md                              ← you are here (template docs)
 ├── AGENTS.md                              ← bellen is the template/pages repo
-├── LICENSE                                ← MIT
+├── LICENSE                                ← MIT, Copyright (c) 2025-2026 e-St (same as e-St/fspure)
+├── NOTICE                                 ← copyright + MIT pointer
 ├── .gitignore                             ← .env, *.pem, node_modules
 ├── docs/
-│   └── index.html                         ← GitHub Pages initializer
+│   ├── index.html                         ← GitHub Pages initializer
+│   ├── legal.html                         ← license / contact / hosting
+│   └── privacy.html                       ← static site + PAT form
 └── .github/workflows/
     └── after-mastart-pr.yml               ← amends init/* PRs on copies of this template
 ```
@@ -162,3 +165,7 @@ OWNER/something-org/
 ├── .devcontainer/post-start.sh            ← clone REPOS, start Canvas
 └── .github/workflows/agent.md             ← gh-aw stub (added by after-mastart-pr)
 ```
+
+## License
+
+MIT License. Copyright (c) 2025-2026 e-St. Same terms as [e-St/fspure](https://github.com/e-St/fspure): see [LICENSE](LICENSE) and [NOTICE](NOTICE).
