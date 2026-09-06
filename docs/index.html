@@ -39,9 +39,7 @@
     }
     h1 { font-size: 1.6rem; margin: 0 0 0.35rem; }
     .lede { color: var(--muted); margin: 0 0 1.5rem; }
-    ol.steps { padding-left: 1.25rem; color: var(--muted); }
-    ol.steps li { margin: 0.35rem 0; }
-    ol.steps code, label code, p code, .status code {
+    label code, p code, .status code, .hint code {
       font-family: var(--mono);
       font-size: 0.88em;
       background: #ece6db;
@@ -53,9 +51,25 @@
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 1.25rem 1.25rem 1.5rem;
-      margin-top: 1.5rem;
+      margin-top: 0;
     }
-    .field { margin-top: 1rem; }
+    .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      margin-right: 0.4rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .field { margin-top: 1.35rem; }
+    .field:first-child { margin-top: 0; }
     label { display: block; font-weight: 600; margin: 0 0 0.35rem; }
     .hint { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
     .preview { margin: 0.45rem 0 0; font: 0.88rem/1.4 var(--mono); color: var(--muted); white-space: pre-wrap; }
@@ -123,11 +137,11 @@
     .status a { color: var(--accent); word-break: break-all; }
     footer { margin-top: 2rem; color: var(--muted); font-size: 0.9rem; }
     .safe {
-      margin-top: 1.25rem;
+      margin-top: 1.35rem;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 0.7rem 0.95rem 0.85rem;
-      background: var(--card);
+      background: var(--bg);
     }
     .safe summary { cursor: pointer; font-weight: 600; }
     .safe .body { margin-top: 0.75rem; }
@@ -140,27 +154,31 @@
     <img class="logo" src="logo.jpg" alt="bellen">
     <h1>bellen</h1>
     <p class="lede">Initialize a thin control repo (<code>*-org</code>) with Agent Canvas + Grok Build. Product code stays in other repos.</p>
-    <ol class="steps">
-      <li>Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template.</li>
-      <li>List product repos. A link appears to GitHub’s token form (Contents, Pull requests, and Workflows pre-filled). You create the PAT there — this page cannot mint one. On GitHub, <strong>choose only the control (*-org) repo</strong> — not all repositories, not the product repos.</li>
-      <li>Paste the token, click <strong>Create PR</strong>. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
-    </ol>
     <form id="form" novalidate>
       <div class="field">
         <label for="repo">
-          Control repo
-          <span class="hint"><code>owner/name</code> — the new <code>*-org</code> repo, not a product repo.</span>
+          <span class="step">1</span> Control repo
+          <span class="hint">Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template, then type that <code>owner/name</code> here. Not a product repo.</span>
         </label>
         <input id="repo" type="text" autocomplete="off" spellcheck="false" placeholder="OWNER/something-org" required>
       </div>
       <div class="field">
         <label for="products">
-          Product repos
-          <span class="hint">One <code>owner/name</code> per line. Cloned into <code>/workspaces/platform</code>.</span>
+          <span class="step">2</span> Product repos
+          <span class="hint">One <code>owner/name</code> per line. Cloned into <code>/workspaces/platform</code>. After this, a GitHub token link appears — this page cannot mint a PAT.</span>
         </label>
         <textarea id="products" placeholder="OWNER/something&#10;OWNER/something-lib"></textarea>
         <p id="productPreview" class="preview" hidden></p>
       </div>
+      <details class="safe">
+        <summary>Why your PAT is safe on this page.</summary>
+        <div class="body">
+          <p>This site is static GitHub Pages with no server of ours, so the token is never stored, logged, or sent to e-St.</p>
+          <p>Your browser talks only to <code>api.github.com</code>, and only to open a branch and pull request on the control repo you named.</p>
+          <p>Use a fine-grained token limited to that one repo (Contents + Pull requests) with a short expiry, then revoke it once the PR exists.</p>
+          <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, <code>.devcontainer/{devcontainer.json,on-create.sh,post-start.sh}</code> (set <code>containerEnv.REPOS</code> to your product <code>owner/name</code> list and <code>PLATFORM=/workspaces/platform</code>), and <code>.github/workflows/agent.md</code>, push, and open a PR into <code>main</code>. Your own <code>gh</code> login can write workflow files; Actions <code>GITHUB_TOKEN</code> cannot. You can also add those files in GitHub’s web editor on a new branch. The easy path below is optional.</p>
+        </div>
+      </details>
       <div id="patCreate" class="cta" hidden>
         <p><strong>Yes — you create the PAT on GitHub.</strong> This page cannot issue one.</p>
         <p>
@@ -171,8 +189,8 @@
       </div>
       <div class="field">
         <label for="pat">
-          Paste the token here
-          <span class="hint">Sent only to <code>api.github.com</code>, not stored. <strong>Show</strong> reveals the characters. It does not create the PR.</span>
+          <span class="step">3</span> Paste the token
+          <span class="hint">Then click <strong>Create PR</strong>. After that: merge, secrets, App, labels, <code>gh aw compile</code>. Sent only to <code>api.github.com</code>, not stored. <strong>Show</strong> reveals the characters.</span>
         </label>
         <div class="row-inline">
           <input id="pat" type="password" autocomplete="off" required>
@@ -183,15 +201,6 @@
       <button type="submit" id="go">Create PR</button>
     </form>
     <div id="status" class="status" hidden></div>
-    <details class="safe">
-      <summary>Why your PAT is safe on this page.</summary>
-      <div class="body">
-        <p>This site is static GitHub Pages with no server of ours, so the token is never stored, logged, or sent to e-St.</p>
-        <p>Your browser talks only to <code>api.github.com</code>, and only to open a branch and pull request on the control repo you named.</p>
-        <p>Use a fine-grained token limited to that one repo (Contents + Pull requests) with a short expiry, then revoke it once the PR exists.</p>
-        <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, <code>.devcontainer/{devcontainer.json,on-create.sh,post-start.sh}</code> (set <code>containerEnv.REPOS</code> to your product <code>owner/name</code> list and <code>PLATFORM=/workspaces/platform</code>), and <code>.github/workflows/agent.md</code>, push, and open a PR into <code>main</code>. Your own <code>gh</code> login can write workflow files; Actions <code>GITHUB_TOKEN</code> cannot. You can also add those files in GitHub’s web editor on a new branch. The easy path above is optional.</p>
-      </div>
-    </details>
     <footer>
       Template and docs: <a href="https://github.com/e-St/bellen">github.com/e-St/bellen</a><br>
       MIT License · Copyright (c) 2025–2026 e-St ·
