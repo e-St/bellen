@@ -142,7 +142,7 @@
     <p class="lede">Initialize a thin control repo (<code>*-org</code>) with Agent Canvas + Grok Build. Product code stays in other repos.</p>
     <ol class="steps">
       <li>Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template.</li>
-      <li>Open this page as <code>?repo=OWNER/something-org</code>.</li>
+      <li>Type that control repo below (the <code>?repo=OWNER/something-org</code> URL is only a shortcut to prefill the box — not required).</li>
       <li>List product repos. A link appears to GitHub’s token form (Contents, Pull requests, and Workflows pre-filled). You create the PAT there — this page cannot mint one. On GitHub, <strong>choose only the control (*-org) repo</strong> — not all repositories, not the product repos.</li>
       <li>Paste the token, click <strong>Create PR</strong>. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
     </ol>
@@ -150,7 +150,7 @@
       <div class="field">
         <label for="repo">
           Control repo
-          <span class="hint"><code>owner/name</code> — the new <code>*-org</code> repo, not a product repo.</span>
+          <span class="hint"><code>owner/name</code> — the new <code>*-org</code> repo, not a product repo. Optional shortcut: open this page as <code>?repo=owner/name</code> to fill this box.</span>
         </label>
         <input id="repo" type="text" autocomplete="off" spellcheck="false" placeholder="OWNER/something-org" required>
       </div>
