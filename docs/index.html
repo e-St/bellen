@@ -143,7 +143,7 @@
     <ol class="steps">
       <li>Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template.</li>
       <li>Open this page as <code>?repo=OWNER/something-org</code>.</li>
-      <li>List product repos. A link appears to GitHub’s token form (Contents + Pull requests pre-filled). You create the PAT there — this page cannot mint one.</li>
+      <li>List product repos. A link appears to GitHub’s token form (Contents + Pull requests pre-filled). You create the PAT there — this page cannot mint one. On GitHub, <strong>choose only the control (*-org) repo</strong> — not all repositories, not the product repos.</li>
       <li>Paste the token, click <strong>Create PR</strong>. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
     </ol>
     <form id="form" novalidate>
@@ -167,6 +167,7 @@
         <p>
           <a class="btn" id="patCreateLink" href="#" target="_blank" rel="noopener">Create the token on GitHub</a>
         </p>
+        <p><strong>Choose only the control (*-org) repo</strong> — not all repositories, not the product repos.</p>
         <p class="hint" id="patCreateHint"></p>
       </div>
       <div class="field">
@@ -307,7 +308,13 @@
     patCreate.hidden = !ready;
     if (!ready) return;
     patCreateLink.href = patCreateUrl(spec);
-    patCreateHint.textContent = "GitHub opens with owner " + spec.owner + ", Contents: write, Pull requests: write, 7-day expiry. Under Repository access, choose only " + spec.owner + "/" + spec.name + ". Generate, copy, paste below, then Create PR.";
+    var only = spec.owner + "/" + spec.name;
+    patCreateHint.textContent = "";
+    patCreateHint.appendChild(document.createTextNode("GitHub opens with owner " + spec.owner + ", Contents: write, Pull requests: write, 7-day expiry. Under Repository access, "));
+    var bold = document.createElement("strong");
+    bold.textContent = "choose only " + only + " — not all repos, not product repos";
+    patCreateHint.appendChild(bold);
+    patCreateHint.appendChild(document.createTextNode(". Generate, copy, paste below, then Create PR."));
   }
 
   productsInput.addEventListener("input", function () {
