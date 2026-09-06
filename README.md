@@ -147,6 +147,7 @@ bellen/
 ├── NOTICE                                 ← copyright + MIT pointer
 ├── .gitignore                             ← .env, *.pem, node_modules
 ├── docs/
+│   ├── logo.jpg                           ← site mark (top of Pages)
 │   ├── index.html                         ← GitHub Pages initializer
 │   ├── legal.html                         ← license / contact / hosting
 │   └── privacy.html                       ← static site + PAT form
