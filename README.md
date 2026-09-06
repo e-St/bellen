@@ -69,14 +69,15 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
 1. On GitHub: **Use this template** → create **`OWNER/something-org`** (empty README is fine; this template already has files).
 2. Open **https://e-st.github.io/bellen/?repo=OWNER/something-org**.
 3. Fill **control repo** `OWNER/something-org` (prefilled from the query string) and **product repos** (one `owner/name` per line).
-4. Yes, **you** create the PAT on GitHub — bellen cannot mint one. As soon as the product repos parse, the page shows **Create the token on GitHub**. That link opens GitHub’s fine-grained PAT form with **Contents: write**, **Pull requests: write**, resource owner, and a 7-day expiry already filled. On that form, set **Repository access** to **choose only the control repo `OWNER/something-org` — not all repositories, not the product repos**. Generate, copy, paste back into bellen. Open **Why your PAT is safe on this page.** on the form if you want the three-sentence safety note, or to do the same init **without** pasting a token (local `gh` or GitHub’s web editor).
+4. Yes, **you** create the PAT on GitHub — bellen cannot mint one. As soon as the product repos parse, the page shows **Create the token on GitHub**. That link opens GitHub’s fine-grained PAT form with **Contents: write**, **Pull requests: write**, **Workflows: write**, resource owner, and a 7-day expiry already filled. **Workflows** is required to add `.github/workflows/agent.md` (GitHub Apps / `GITHUB_TOKEN` cannot create workflow files without it). On that form, set **Repository access** to **choose only the control repo `OWNER/something-org` — not all repositories, not the product repos**. Generate, copy, paste back into bellen. Open **Why your PAT is safe on this page.** on the form if you want the three-sentence safety note, or to do the same init **without** pasting a token (local `gh` or GitHub’s web editor).
 5. Click **Create PR**. The page talks only to `api.github.com`. It opens branch `init/control-canvas` with:
    - `AGENTS.md`
    - `README.md` (short control-repo readme)
    - `.devcontainer/devcontainer.json`
    - `.devcontainer/on-create.sh`
    - `.devcontainer/post-start.sh`
-6. Workflow **`after-mastart-pr`** on the new repo amends that PR: it commits a **gh-aw** stub (`.github/workflows/agent.md`) listing the product repos, and posts a checklist comment. A human must still run `gh aw compile`.
+   - `.github/workflows/agent.md` (gh-aw stub)
+6. Workflow **`after-mastart-pr`** on the new repo comments a human checklist. It does **not** push workflow files (`GITHUB_TOKEN` is rejected). A human must still run `gh aw compile`.
 7. Human, on **`OWNER/something-org`**:
    - Merge the PR.
    - Add secrets (see [Secrets](#7-secrets)).
@@ -152,7 +153,7 @@ bellen/
 │   ├── legal.html                         ← license / contact / hosting
 │   └── privacy.html                       ← static site + PAT form
 └── .github/workflows/
-    └── after-mastart-pr.yml               ← amends init/* PRs on copies of this template
+    └── after-mastart-pr.yml               ← checklist comment on init/* PRs (does not push workflow files)
 ```
 
 Files the initializer writes live on **`OWNER/something-org`**, not here:
@@ -164,7 +165,7 @@ OWNER/something-org/
 ├── .devcontainer/devcontainer.json        ← Ubuntu + github-cli; REPOS; port 8000
 ├── .devcontainer/on-create.sh             ← Node 22, Grok Build, agent-canvas
 ├── .devcontainer/post-start.sh            ← clone REPOS, start Canvas
-└── .github/workflows/agent.md             ← gh-aw stub (added by after-mastart-pr)
+└── .github/workflows/agent.md             ← gh-aw stub (written by the initializer PAT)
 ```
 
 ## License

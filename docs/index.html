@@ -143,7 +143,7 @@
     <ol class="steps">
       <li>Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template.</li>
       <li>Open this page as <code>?repo=OWNER/something-org</code>.</li>
-      <li>List product repos. A link appears to GitHub’s token form (Contents + Pull requests pre-filled). You create the PAT there — this page cannot mint one. On GitHub, <strong>choose only the control (*-org) repo</strong> — not all repositories, not the product repos.</li>
+      <li>List product repos. A link appears to GitHub’s token form (Contents, Pull requests, and Workflows pre-filled). You create the PAT there — this page cannot mint one. On GitHub, <strong>choose only the control (*-org) repo</strong> — not all repositories, not the product repos.</li>
       <li>Paste the token, click <strong>Create PR</strong>. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
     </ol>
     <form id="form" novalidate>
@@ -180,7 +180,7 @@
           <button type="button" id="togglePat" style="margin-top:0;background:#57534e;">Show</button>
         </div>
       </div>
-      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, and <code>.devcontainer/*</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>.</p>
+      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, <code>.devcontainer/*</code>, and <code>.github/workflows/agent.md</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>. Workflows permission is required because GitHub treats <code>agent.md</code> as a workflow file.</p>
       <button type="submit" id="go">Create PR</button>
     </form>
     <div id="status" class="status" hidden></div>
@@ -190,7 +190,7 @@
         <p>This site is static GitHub Pages with no server of ours, so the token is never stored, logged, or sent to e-St.</p>
         <p>Your browser talks only to <code>api.github.com</code>, and only to open a branch and pull request on the control repo you named.</p>
         <p>Use a fine-grained token limited to that one repo (Contents + Pull requests) with a short expiry, then revoke it once the PR exists.</p>
-        <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, and <code>.devcontainer/{devcontainer.json,on-create.sh,post-start.sh}</code> with <code>containerEnv.REPOS</code> set to your product <code>owner/name</code> list and <code>PLATFORM=/workspaces/platform</code>, push, and open a PR into <code>main</code>. The template already includes <code>after-mastart-pr.yml</code>, which amends that PR the same way. You can also add those files in GitHub’s web editor on a new branch. The easy path above is optional.</p>
+        <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, <code>.devcontainer/{devcontainer.json,on-create.sh,post-start.sh}</code> (set <code>containerEnv.REPOS</code> to your product <code>owner/name</code> list and <code>PLATFORM=/workspaces/platform</code>), and <code>.github/workflows/agent.md</code>, push, and open a PR into <code>main</code>. Your own <code>gh</code> login can write workflow files; Actions <code>GITHUB_TOKEN</code> cannot. You can also add those files in GitHub’s web editor on a new branch. The easy path above is optional.</p>
       </div>
     </details>
     <footer>
@@ -293,11 +293,12 @@
   function patCreateUrl(spec) {
     var q = new URLSearchParams();
     q.set("name", ("bellen " + spec.name).slice(0, 40));
-    q.set("description", "Create init/control-canvas on " + spec.owner + "/" + spec.name + " from https://e-st.github.io/bellen/. Limit this token to that one repository.");
+    q.set("description", "Create init/control-canvas on " + spec.owner + "/" + spec.name + " from https://e-st.github.io/bellen/. Limit this token to that one repository. Workflows: write is required to add .github/workflows/agent.md.");
     q.set("target_name", spec.owner);
     q.set("expires_in", "7");
     q.set("contents", "write");
     q.set("pull_requests", "write");
+    q.set("workflows", "write");
     return "https://github.com/settings/personal-access-tokens/new?" + q.toString();
   }
 
@@ -310,7 +311,7 @@
     patCreateLink.href = patCreateUrl(spec);
     var only = spec.owner + "/" + spec.name;
     patCreateHint.textContent = "";
-    patCreateHint.appendChild(document.createTextNode("GitHub opens with owner " + spec.owner + ", Contents: write, Pull requests: write, 7-day expiry. Under Repository access, "));
+    patCreateHint.appendChild(document.createTextNode("GitHub opens with owner " + spec.owner + ", Contents: write, Pull requests: write, Workflows: write, 7-day expiry. Under Repository access, "));
     var bold = document.createElement("strong");
     bold.textContent = "choose only " + only + " — not all repos, not product repos";
     patCreateHint.appendChild(bold);
@@ -466,6 +467,38 @@
     ].join("\n");
   }
 
+  function agentMd(repos) {
+    var lines = [
+      "---",
+      "# gh-aw source stub. Human: install the extension, choose an engine, set secrets, then run: gh aw compile",
+      "on:",
+      "  issues:",
+      "    types: [labeled]",
+      "permissions: read-all",
+      "---",
+      "",
+      "# Agent",
+      "",
+      "Run only when the issue has the `agent` label and does **not** have `canvas`.",
+      "Never apply both labels.",
+      "",
+      "Work the issue in the product repositories. Git is the shared disk.",
+      "Open a PR on the product repo (branch like `agent/<n>-short-slug`).",
+      "Do not treat clones under `/workspaces/platform` as a substitute for those remotes.",
+      "",
+      "Product repos:",
+      ""
+    ];
+    if (!repos.length) lines.push("- (none listed in containerEnv.REPOS)");
+    else {
+      for (var i = 0; i < repos.length; i++) lines.push("- " + repos[i]);
+    }
+    lines.push("");
+    lines.push("Human: `gh extension install github/gh-aw && gh aw compile`");
+    lines.push("");
+    return lines.join("\n");
+  }
+
   function filesFor(owner, name, repos) {
     var dc = {
       image: "mcr.microsoft.com/devcontainers/base:ubuntu",
@@ -492,7 +525,8 @@
       { path: "README.md", mode: "100644", content: controlReadme(owner, name, repos) },
       { path: ".devcontainer/devcontainer.json", mode: "100644", content: JSON.stringify(dc, null, 2) + "\n" },
       { path: ".devcontainer/on-create.sh", mode: "100755", content: onCreateSh() },
-      { path: ".devcontainer/post-start.sh", mode: "100755", content: postStartSh() }
+      { path: ".devcontainer/post-start.sh", mode: "100755", content: postStartSh() },
+      { path: ".github/workflows/agent.md", mode: "100644", content: agentMd(repos) }
     ];
   }
 
@@ -592,7 +626,7 @@
           "",
           (repos.length ? repos.map(function (r) { return "- `" + r + "`"; }).join("\n") : "- (none)"),
           "",
-          "After this PR opens, workflow `after-mastart-pr` should add `.github/workflows/agent.md` (gh-aw stub) and a human checklist.",
+          "Includes `.github/workflows/agent.md` (gh-aw stub). Workflow `after-mastart-pr` posts a human checklist. Actions cannot push workflow files with GITHUB_TOKEN.",
           "",
           "Do not merge until you have read that checklist. This PR does not set repository secrets or the GitHub App."
         ].join("\n");
