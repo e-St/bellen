@@ -645,6 +645,16 @@
     ];
   }
 
+  async function repoPathExists(owner, name, path, ref, token) {
+    try {
+      await gh("/repos/" + owner + "/" + name + "/contents/" + path.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(ref), token);
+      return true;
+    } catch (e) {
+      if (e.status === 404) return false;
+      throw e;
+    }
+  }
+
   async function branchSha(owner, name, branch, token) {
     try {
       var b = await gh("/repos/" + owner + "/" + name + "/branches/" + encodeURIComponent(branch), token);
@@ -687,15 +697,34 @@
       }
 
       var parent = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/commits/" + parentSha, token);
-      var treeFiles = filesFor(spec.owner, spec.name, repos).map(function (f) {
-        if (f.sha === null) return { path: f.path, mode: f.mode, type: "blob", sha: null };
-        return { path: f.path, mode: f.mode, type: "blob", content: f.content };
-      });
+      var planned = filesFor(spec.owner, spec.name, repos);
+      var treeFiles = [];
+      for (var fi = 0; fi < planned.length; fi++) {
+        var f = planned[fi];
+        if (f.sha === null) {
+          if (!(await repoPathExists(spec.owner, spec.name, f.path, parentSha, token))) continue;
+          treeFiles.push({ path: f.path, mode: f.mode, type: "blob", sha: null });
+        } else {
+          treeFiles.push({ path: f.path, mode: f.mode, type: "blob", content: f.content });
+        }
+      }
       step("Creating tree (" + treeFiles.length + " files) …");
-      var tree = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/trees", token, {
-        method: "POST",
-        body: { base_tree: parent.tree.sha, tree: treeFiles }
-      });
+      var tree;
+      try {
+        tree = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/trees", token, {
+          method: "POST",
+          body: { base_tree: parent.tree.sha, tree: treeFiles }
+        });
+      } catch (e) {
+        var deletes = treeFiles.filter(function (t) { return t.sha === null; });
+        if (!deletes.length || !/BadObjectState/i.test(String(e && e.message ? e.message : e))) throw e;
+        treeFiles = treeFiles.filter(function (t) { return t.sha !== null; });
+        step("Retrying tree without deletes (" + treeFiles.length + " files) …");
+        tree = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/trees", token, {
+          method: "POST",
+          body: { base_tree: parent.tree.sha, tree: treeFiles }
+        });
+      }
       var commit = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/commits", token, {
         method: "POST",
         body: {
