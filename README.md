@@ -74,9 +74,10 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
 5. Click **Create PR**. The page talks only to `api.github.com`. It opens branch `init/control-canvas` with:
    - `AGENTS.md`
    - `README.md` (short control-repo readme)
-   - `.devcontainer/Dockerfile` (`FROM ghcr.io/e-st/bellen:<version>`)
-   - `.devcontainer/devcontainer.json` (port **8000** only)
-   - `.devcontainer/post-start.sh` (start Canvas, then clone product repos)
+   - `.devcontainer/Dockerfile` (`FROM ghcr.io/e-st/bellen:<version>` — Dependabot)
+   - `.devcontainer/devcontainer.json` (`image` = that tag, **no features**, **no onCreateCommand**, port **8000** only)
+   - `.devcontainer/post-start.sh` (start Canvas, then clone product repos in the background)
+   - removes leftover `.devcontainer/on-create.sh` if present
    - `.github/dependabot.yml` (image tag + Actions)
    - `.github/workflows/agent.md` (gh-aw stub)
 6. Workflow **`after-mastart-pr`** on the new repo comments a human checklist. It does **not** push workflow files (`GITHUB_TOKEN` is rejected). A human must still run `gh aw compile`.

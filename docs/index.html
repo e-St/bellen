@@ -212,7 +212,7 @@
 (function () {
   var BRANCH = "init/control-canvas";
   var API = "https://api.github.com";
-  var IMAGE = "ghcr.io/e-st/bellen:1.0.0";
+  var IMAGE = "ghcr.io/e-st/bellen:1.1.0";
 
   var form = document.getElementById("form");
   var statusEl = document.getElementById("status");
@@ -363,7 +363,7 @@
   }
 
   function controlDockerfile() {
-    return "FROM " + IMAGE + "\n";
+    return "# Keep devcontainer.json \"image\" on this same tag.\nFROM " + IMAGE + "\n";
   }
 
   function dependabotYml() {
@@ -543,7 +543,7 @@
   function filesFor(owner, name, repos) {
     var dc = {
       name: "control",
-      build: { dockerfile: "Dockerfile" },
+      image: IMAGE,
       containerEnv: {
         REPOS: repos.join(","),
         PLATFORM: "/workspaces/platform"
@@ -567,7 +567,8 @@
       { path: ".devcontainer/devcontainer.json", mode: "100644", content: JSON.stringify(dc, null, 2) + "\n" },
       { path: ".devcontainer/post-start.sh", mode: "100755", content: postStartSh() },
       { path: ".github/dependabot.yml", mode: "100644", content: dependabotYml() },
-      { path: ".github/workflows/agent.md", mode: "100644", content: agentMd(repos) }
+      { path: ".github/workflows/agent.md", mode: "100644", content: agentMd(repos) },
+      { path: ".devcontainer/on-create.sh", mode: "100644", sha: null }
     ];
   }
 
@@ -614,6 +615,7 @@
 
       var parent = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/commits/" + parentSha, token);
       var treeFiles = filesFor(spec.owner, spec.name, repos).map(function (f) {
+        if (f.sha === null) return { path: f.path, mode: f.mode, type: "blob", sha: null };
         return { path: f.path, mode: f.mode, type: "blob", content: f.content };
       });
       step("Creating tree (" + treeFiles.length + " files) …");
@@ -662,7 +664,7 @@
       } else {
         var body = [
           "Adds the thin control Codespace (Agent Canvas + Grok Build).",
-          "Codespace image: `" + IMAGE + "` (port 8000 only). Dependabot watches that tag.",
+          "Codespace **pulls** `" + IMAGE + "` (gh, Node, uv, Grok, Canvas already installed). No features, no on-create install. Port 8000 only.",
           "",
           "Product repos in `containerEnv.REPOS`:",
           "",
