@@ -68,26 +68,24 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
 
 1. On GitHub: **Use this template** → create **`OWNER/something-org`** (empty README is fine; this template already has files).
 2. Open **https://e-st.github.io/bellen/?repo=OWNER/something-org**.
-3. Fill:
-   - Control repo `OWNER/something-org` (prefilled from the query string).
-   - Product repos, **one `owner/name` per line**.
-   - A **fine-grained PAT** with **Contents** + **Pull requests** on **that new control repo only**.
-4. Click **Create PR**. The page talks only to `api.github.com`. It opens branch `init/control-canvas` with:
+3. Fill **control repo** `OWNER/something-org` (prefilled from the query string) and **product repos** (one `owner/name` per line).
+4. Yes, **you** create the PAT on GitHub — bellen cannot mint one. As soon as the product repos parse, the page shows **Create the token on GitHub**. That link opens GitHub’s fine-grained PAT form with **Contents: write**, **Pull requests: write**, resource owner, and a 7-day expiry already filled. On that form, set **Repository access** to **only** `OWNER/something-org`. Generate, copy, paste back into bellen.
+5. Click **Create PR**. The page talks only to `api.github.com`. It opens branch `init/control-canvas` with:
    - `AGENTS.md`
    - `README.md` (short control-repo readme)
    - `.devcontainer/devcontainer.json`
    - `.devcontainer/on-create.sh`
    - `.devcontainer/post-start.sh`
-5. Workflow **`after-mastart-pr`** on the new repo amends that PR: it commits a **gh-aw** stub (`.github/workflows/agent.md`) listing the product repos, and posts a checklist comment. A human must still run `gh aw compile`.
-6. Human, on **`OWNER/something-org`**:
+6. Workflow **`after-mastart-pr`** on the new repo amends that PR: it commits a **gh-aw** stub (`.github/workflows/agent.md`) listing the product repos, and posts a checklist comment. A human must still run `gh aw compile`.
+7. Human, on **`OWNER/something-org`**:
    - Merge the PR.
    - Add secrets (see [Secrets](#7-secrets)).
    - Install a GitHub App on the **control repo and every product repo** (least privilege).
    - Create labels **`agent`** and **`canvas`**.
    - `gh extension install github/gh-aw` then `gh aw compile`, commit the generated `.lock.yml`.
-7. **Code → Create codespace** on the control repo (not on a product repo).
-8. After start: **Ports → 8000** (label `agent-canvas`, visibility **org**).
-9. In Agent Canvas: enter `LOCAL_BACKEND_API_KEY`, set ACP to **`grok agent stdio`**, workspace **`/workspaces/platform`**.
+8. **Code → Create codespace** on the control repo (not on a product repo).
+9. After start: **Ports → 8000** (label `agent-canvas`, visibility **org**).
+10. In Agent Canvas: enter `LOCAL_BACKEND_API_KEY`, set ACP to **`grok agent stdio`**, workspace **`/workspaces/platform`**.
 
 Revoke the initializer PAT after the PR exists. Codespaces uses your GitHub login to clone product repos you can already access.
 

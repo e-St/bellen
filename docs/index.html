@@ -60,6 +60,24 @@
     .hint { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
     .preview { margin: 0.45rem 0 0; font: 0.88rem/1.4 var(--mono); color: var(--muted); white-space: pre-wrap; }
     .preview.err { color: var(--err); }
+    .cta {
+      background: #e7f3ee;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      margin-top: 1rem;
+    }
+    .cta p { margin: 0.4rem 0; }
+    .cta a.btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.6rem 0.95rem;
+      border-radius: 6px;
+      margin: 0.35rem 0 0.5rem;
+    }
     input[type="text"], input[type="password"], textarea {
       width: 100%;
       font: 15px/1.4 var(--mono);
@@ -114,8 +132,8 @@
     <ol class="steps">
       <li>Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template.</li>
       <li>Open this page as <code>?repo=OWNER/something-org</code>.</li>
-      <li>List product repos and a fine-grained PAT (Contents + Pull requests, <strong>that repo only</strong>).</li>
-      <li>Create branch <code>init/control-canvas</code> and a PR. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
+      <li>List product repos. A link appears to GitHub’s token form (Contents + Pull requests pre-filled). You create the PAT there — this page cannot mint one.</li>
+      <li>Paste the token, click <strong>Create PR</strong>. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
     </ol>
     <form id="form" novalidate>
       <div class="field">
@@ -133,10 +151,17 @@
         <textarea id="products" placeholder="OWNER/something&#10;OWNER/something-lib"></textarea>
         <p id="productPreview" class="preview" hidden></p>
       </div>
+      <div id="patCreate" class="cta" hidden>
+        <p><strong>Yes — you create the PAT on GitHub.</strong> This page cannot issue one.</p>
+        <p>
+          <a class="btn" id="patCreateLink" href="#" target="_blank" rel="noopener">Create the token on GitHub</a>
+        </p>
+        <p class="hint" id="patCreateHint"></p>
+      </div>
       <div class="field">
         <label for="pat">
-          Fine-grained PAT
-          <span class="hint">Contents + Pull requests on the control repo only. Sent to <code>api.github.com</code> from this browser; not stored. <strong>Show</strong> reveals the token, it does not create the PR.</span>
+          Paste the token here
+          <span class="hint">Sent only to <code>api.github.com</code>, not stored. <strong>Show</strong> reveals the characters. It does not create the PR.</span>
         </label>
         <div class="row-inline">
           <input id="pat" type="password" autocomplete="off" required>
@@ -166,6 +191,9 @@
   var productsInput = document.getElementById("products");
   var patInput = document.getElementById("pat");
   var productPreview = document.getElementById("productPreview");
+  var patCreate = document.getElementById("patCreate");
+  var patCreateLink = document.getElementById("patCreateLink");
+  var patCreateHint = document.getElementById("patCreateHint");
 
   document.getElementById("togglePat").addEventListener("click", function (ev) {
     ev.preventDefault();
@@ -236,8 +264,39 @@
     }
     return parsed;
   }
-  productsInput.addEventListener("input", refreshProductPreview);
+  function tryControlSpec() {
+    try { return parseOwnerName(repoInput.value, "Control repo"); }
+    catch (e) { return null; }
+  }
+
+  function patCreateUrl(spec) {
+    var q = new URLSearchParams();
+    q.set("name", ("bellen " + spec.name).slice(0, 40));
+    q.set("description", "Create init/control-canvas on " + spec.owner + "/" + spec.name + " from https://e-st.github.io/bellen/. Limit this token to that one repository.");
+    q.set("target_name", spec.owner);
+    q.set("expires_in", "7");
+    q.set("contents", "write");
+    q.set("pull_requests", "write");
+    return "https://github.com/settings/personal-access-tokens/new?" + q.toString();
+  }
+
+  function refreshPatCreate() {
+    var spec = tryControlSpec();
+    var parsed = parseProducts(productsInput.value);
+    var ready = !!(spec && parsed.repos.length && !parsed.errors.length);
+    patCreate.hidden = !ready;
+    if (!ready) return;
+    patCreateLink.href = patCreateUrl(spec);
+    patCreateHint.textContent = "GitHub opens with owner " + spec.owner + ", Contents: write, Pull requests: write, 7-day expiry. Under Repository access, choose only " + spec.owner + "/" + spec.name + ". Generate, copy, paste below, then Create PR.";
+  }
+
+  productsInput.addEventListener("input", function () {
+    refreshProductPreview();
+    refreshPatCreate();
+  });
+  repoInput.addEventListener("input", refreshPatCreate);
   refreshProductPreview();
+  refreshPatCreate();
 
   async function gh(path, token, opts) {
     opts = opts || {};
