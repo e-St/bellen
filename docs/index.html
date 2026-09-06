@@ -176,7 +176,7 @@
           <p>This site is static GitHub Pages with no server of ours, so the token is never stored, logged, or sent to e-St.</p>
           <p>Your browser talks only to <code>api.github.com</code>, and only to open a branch and pull request on the control repo you named.</p>
           <p>Use a fine-grained token limited to that one repo (Contents + Pull requests) with a short expiry, then revoke it once the PR exists.</p>
-          <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, <code>.devcontainer/{devcontainer.json,on-create.sh,post-start.sh}</code> (set <code>containerEnv.REPOS</code> to your product <code>owner/name</code> list and <code>PLATFORM=/workspaces/platform</code>), and <code>.github/workflows/agent.md</code>, push, and open a PR into <code>main</code>. Your own <code>gh</code> login can write workflow files; Actions <code>GITHUB_TOKEN</code> cannot. You can also add those files in GitHub’s web editor on a new branch. The easy path below is optional.</p>
+          <p><strong>Without pasting a PAT here:</strong> clone <code>OWNER/something-org</code> with <code>gh</code> (already logged in as you), branch <code>init/control-canvas</code>, add <code>AGENTS.md</code>, a short control <code>README.md</code>, <code>.devcontainer/{devcontainer.json,Dockerfile,post-start.sh}</code> (<code>FROM ghcr.io/e-st/bellen:&lt;version&gt;</code>, <code>containerEnv.REPOS</code> = your product <code>owner/name</code> list, <code>PLATFORM=/workspaces/platform</code>, forward only port 8000), <code>.github/dependabot.yml</code>, and <code>.github/workflows/agent.md</code>, push, and open a PR into <code>main</code>. Your own <code>gh</code> login can write workflow files; Actions <code>GITHUB_TOKEN</code> cannot. You can also add those files in GitHub’s web editor on a new branch. The easy path below is optional.</p>
         </div>
       </details>
       <div id="patCreate" class="cta" hidden>
@@ -197,7 +197,7 @@
           <button type="button" id="togglePat" style="margin-top:0;background:#57534e;">Show</button>
         </div>
       </div>
-      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, <code>.devcontainer/*</code>, and <code>.github/workflows/agent.md</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>. Workflows permission is required because GitHub treats <code>agent.md</code> as a workflow file.</p>
+      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, <code>.devcontainer/*</code> (image <code>ghcr.io/e-st/bellen</code>, port 8000 only), <code>.github/dependabot.yml</code>, and <code>.github/workflows/agent.md</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>. Workflows permission is required because GitHub treats <code>agent.md</code> as a workflow file.</p>
       <button type="submit" id="go">Create PR</button>
     </form>
     <div id="status" class="status" hidden></div>
@@ -212,6 +212,7 @@
 (function () {
   var BRANCH = "init/control-canvas";
   var API = "https://api.github.com";
+  var IMAGE = "ghcr.io/e-st/bellen:1.0.0";
 
   var form = document.getElementById("form");
   var statusEl = document.getElementById("status");
@@ -361,18 +362,22 @@
     return data;
   }
 
-  function onCreateSh() {
+  function controlDockerfile() {
+    return "FROM " + IMAGE + "\n";
+  }
+
+  function dependabotYml() {
     return [
-      "#!/usr/bin/env bash",
-      "sudo apt-get update",
-      "sudo apt-get install -y ca-certificates curl gnupg",
-      "sudo mkdir -p /etc/apt/keyrings",
-      "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg",
-      "echo \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main\" | sudo tee /etc/apt/sources.list.d/nodesource.list",
-      "sudo apt-get update",
-      "sudo apt-get install -y nodejs",
-      "curl -fsSL https://x.ai/cli/install.sh | bash",
-      "sudo npm i -g @openhands/agent-canvas",
+      "version: 2",
+      "updates:",
+      "  - package-ecosystem: docker",
+      "    directory: /.devcontainer",
+      "    schedule:",
+      "      interval: weekly",
+      "  - package-ecosystem: github-actions",
+      "    directory: /",
+      "    schedule:",
+      "      interval: weekly",
       ""
     ].join("\n");
   }
@@ -380,18 +385,44 @@
   function postStartSh() {
     return [
       "#!/usr/bin/env bash",
-      "export PATH=\"$HOME/.local/bin:$PATH\"",
-      "mkdir -p \"$PLATFORM\"",
+      "export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\"",
+      "export TMUX_TMPDIR=\"${TMUX_TMPDIR:-/tmp}\"",
+      "mkdir -p \"${PLATFORM:-/workspaces/platform}\" \"$HOME/.openhands\"",
+      "",
+      "if [ -z \"$LOCAL_BACKEND_API_KEY\" ]; then",
+      "  LOCAL_BACKEND_API_KEY=$(openssl rand -base64 32)",
+      "  export LOCAL_BACKEND_API_KEY",
+      "  umask 077",
+      "  printf '%s\\n' \"$LOCAL_BACKEND_API_KEY\" > \"$HOME/.openhands/local-backend-api-key\"",
+      "  echo \"LOCAL_BACKEND_API_KEY was unset; generated $HOME/.openhands/local-backend-api-key (paste that in the Canvas UI).\"",
+      "fi",
+      "",
+      "if ! curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8000/; then",
+      "  nohup agent-canvas --public --port 8000 >> \"$HOME/.openhands/agent-canvas.log\" 2>&1 &",
+      "  echo $! > \"$HOME/.openhands/agent-canvas.pid\"",
+      "  n=0",
+      "  while [ \"$n\" -lt 90 ]; do",
+      "    curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8000/ && break",
+      "    n=$((n+1))",
+      "    sleep 1",
+      "  done",
+      "  if ! curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8000/; then",
+      "    echo \"Agent Canvas did not bind :8000. Last log:\"",
+      "    tail -50 \"$HOME/.openhands/agent-canvas.log\"",
+      "  fi",
+      "fi",
+      "",
       "printf 'repos:\\n' > \"$PLATFORM/repos.yml\"",
-      "IFS=','",
-      "for spec in $REPOS; do",
-      "  spec=$(printf '%s' \"$spec\" | sed 's/^ *//;s/ *$//')",
-      "  [ -z \"$spec\" ] && continue",
-      "  printf '  - %s\\n' \"$spec\" >> \"$PLATFORM/repos.yml\"",
-      "  dest=\"$PLATFORM/${spec##*/}\"",
-      "  [ -d \"$dest/.git\" ] || gh repo clone \"$spec\" \"$dest\"",
-      "done",
-      "agent-canvas --public --port 8000",
+      "(",
+      "  IFS=','",
+      "  for spec in $REPOS; do",
+      "    spec=$(printf '%s' \"$spec\" | sed 's/^ *//;s/ *$//')",
+      "    [ -z \"$spec\" ] && continue",
+      "    printf '  - %s\\n' \"$spec\" >> \"$PLATFORM/repos.yml\"",
+      "    dest=\"$PLATFORM/${spec##*/}\"",
+      "    [ -d \"$dest/.git\" ] || gh repo clone \"$spec\" \"$dest\" || echo \"clone failed: $spec\"",
+      "  done",
+      ") >> \"$HOME/.openhands/clone.log\" 2>&1 &",
       ""
     ].join("\n");
   }
@@ -408,12 +439,14 @@
       "",
       "## Codespace",
       "",
-      "1. Code → Create codespace on `main` (after merge).",
-      "2. Wait for create (Node 22, Grok Build, Agent Canvas) and start (clone product repos, Canvas).",
-      "3. Ports → **8000** (`agent-canvas`, visibility org).",
-      "4. Paste `LOCAL_BACKEND_API_KEY` in the Canvas UI.",
+      "1. Code → Create codespace on `main` (after merge). Image: `ghcr.io/e-st/bellen`.",
+      "2. Wait for start (Agent Canvas on port 8000, then product clones).",
+      "3. Ports → **8000** (`agent-canvas`, visibility org). Only this port is forwarded.",
+      "4. Paste `LOCAL_BACKEND_API_KEY` in the Canvas UI (Codespace secret, or `$HOME/.openhands/local-backend-api-key` if unset).",
       "5. ACP command: `grok agent stdio`",
       "6. Workspace: `/workspaces/platform`",
+      "",
+      "Dependabot opens a PR when a new `ghcr.io/e-st/bellen` tag exists. Merge it and rebuild the Codespace.",
       "",
       "Product repos cloned there:",
       "",
@@ -459,7 +492,7 @@
       "## Interactive (`canvas`)",
       "",
       "1. Codespace on **this** repo (not a product repo).",
-      "2. Port 8000 — Agent Canvas, visibility org.",
+      "2. Port 8000 only — Agent Canvas, visibility org. Image `ghcr.io/e-st/bellen`.",
       "3. ACP: `grok agent stdio`",
       "4. Workspace: `/workspaces/platform`",
       "",
@@ -509,10 +542,8 @@
 
   function filesFor(owner, name, repos) {
     var dc = {
-      image: "mcr.microsoft.com/devcontainers/base:ubuntu",
-      features: {
-        "ghcr.io/devcontainers/features/github-cli:1": {}
-      },
+      name: "control",
+      build: { dockerfile: "Dockerfile" },
       containerEnv: {
         REPOS: repos.join(","),
         PLATFORM: "/workspaces/platform"
@@ -521,19 +552,21 @@
       portsAttributes: {
         "8000": {
           label: "agent-canvas",
-          onAutoForward: "notify",
+          onAutoForward: "openPreview",
           visibility: "org"
         }
       },
-      onCreateCommand: "bash .devcontainer/on-create.sh",
-      postStartCommand: "bash .devcontainer/post-start.sh"
+      otherPortsAttributes: { onAutoForward: "ignore" },
+      postStartCommand: "bash .devcontainer/post-start.sh",
+      waitFor: "postStartCommand"
     };
     return [
       { path: "AGENTS.md", mode: "100644", content: controlAgents(owner, name, repos) },
       { path: "README.md", mode: "100644", content: controlReadme(owner, name, repos) },
+      { path: ".devcontainer/Dockerfile", mode: "100644", content: controlDockerfile() },
       { path: ".devcontainer/devcontainer.json", mode: "100644", content: JSON.stringify(dc, null, 2) + "\n" },
-      { path: ".devcontainer/on-create.sh", mode: "100755", content: onCreateSh() },
       { path: ".devcontainer/post-start.sh", mode: "100755", content: postStartSh() },
+      { path: ".github/dependabot.yml", mode: "100644", content: dependabotYml() },
       { path: ".github/workflows/agent.md", mode: "100644", content: agentMd(repos) }
     ];
   }
@@ -629,6 +662,7 @@
       } else {
         var body = [
           "Adds the thin control Codespace (Agent Canvas + Grok Build).",
+          "Codespace image: `" + IMAGE + "` (port 8000 only). Dependabot watches that tag.",
           "",
           "Product repos in `containerEnv.REPOS`:",
           "",

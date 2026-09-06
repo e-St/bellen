@@ -38,8 +38,9 @@ jobs:
             - [ ] Install the GitHub App on **this control repo and every product repo** (least privilege: contents, issues, pull requests)
             - [ ] Create labels `agent` and `canvas`
             - [ ] `gh extension install github/gh-aw && gh aw compile` — commit the `.lock.yml`
-            - [ ] Codespace on this control repo → Ports **8000** (label `agent-canvas`, visibility org)
+            - [ ] Codespace on this control repo (image `ghcr.io/e-st/bellen`) → Ports **8000** only (`agent-canvas`, visibility org)
             - [ ] Agent Canvas ACP: `grok agent stdio` — workspace `/workspaces/platform`
+            - [ ] Dependabot: allow version updates so image/tag bumps open PRs
         run: |
           if [ ! -f .devcontainer/devcontainer.json ]; then
             echo "No .devcontainer/devcontainer.json; skip (template repo, not a control repo)."

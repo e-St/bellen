@@ -12,8 +12,8 @@ You keep product code in its own repos. You do **not** turn this template, or a 
 
 | Piece | Role |
 | --- | --- |
-| **This repo (`e-St/bellen`)** | Template + Pages initializer (`docs/index.html`) |
-| **Control repo `OWNER/something-org`** | Thin GitHub Codespace: OpenHands Agent Canvas + Grok Build |
+| **This repo (`e-St/bellen`)** | Template + Pages initializer (`docs/index.html`) + control image (`ghcr.io/e-st/bellen`) |
+| **Control repo `OWNER/something-org`** | Thin GitHub Codespace: pulls `ghcr.io/e-st/bellen`, Agent Canvas on port 8000 |
 | **Product repos** | Real apps/libraries. Each has its **own** `.devcontainer` / Codespace |
 | **GitHub Actions (`gh-aw`)** | Unattended work when an issue is labeled `agent` |
 | **Agent Canvas** | Interactive work in the **control** Codespace when labeled `canvas` |
@@ -26,12 +26,12 @@ Interactive sessions use Agent Canvas with ACP command `grok agent stdio`. Human
                     ┌─────────────────────────────────────┐
   labeled `canvas`  │  Control Codespace                  │
   ─────────────────►│  OWNER/something-org                │
-                    │  image: Ubuntu base + GitHub CLI    │
-                    │  Node 22 (apt, not a feature)       │
-                    │  Grok Build + @openhands/agent-canvas│
+                    │  image: ghcr.io/e-st/bellen         │
+                    │    (Canvas + Grok + gh, from this   │
+                    │     repo’s image/ Dockerfile)       │
                     │  clones product repos →             │
                     │    /workspaces/platform             │
-                    │  port 8000 (org) = Agent Canvas     │
+                    │  port 8000 only (org) = Agent Canvas│
                     │  ACP: grok agent stdio              │
                     └─────────────────────────────────────┘
                                       │
@@ -48,7 +48,7 @@ Interactive sessions use Agent Canvas with ACP command `grok agent stdio`. Human
                         (gh-aw, after a human ran `gh aw compile`)
 ```
 
-- **Control Codespace** — one thin machine for the agent. Product toolchains do **not** belong here.
+- **Control Codespace** — one thin machine for the agent, running `ghcr.io/e-st/bellen`. Product toolchains do **not** belong here. Only port **8000** is forwarded.
 - **Product Codespaces** — humans open these to inspect branches. Each product repo keeps its own devcontainer.
 - **Actions** — unattended `agent` runs. No Canvas UI.
 
@@ -61,8 +61,9 @@ Do this on **https://github.com/e-St/bellen** (cannot be set from files):
 1. **Settings → General → Template repository** — check “Template repository”.
 2. **Settings → Pages** — Deploy from branch **main**, folder **/docs**.
 3. Confirm **https://e-st.github.io/bellen/** serves `docs/index.html`.
+4. Workflow **Publish control image** pushes `ghcr.io/e-st/bellen:<image/VERSION>`. The package must be **public** so `*-org` Codespaces can pull it.
 
-Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They do not inherit GitHub Pages or the template flag; those stay on bellen.
+Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They do not inherit GitHub Pages, the template flag, or GHCR; those stay on bellen.
 
 ## 4. Each new project
 
@@ -73,9 +74,10 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
 5. Click **Create PR**. The page talks only to `api.github.com`. It opens branch `init/control-canvas` with:
    - `AGENTS.md`
    - `README.md` (short control-repo readme)
-   - `.devcontainer/devcontainer.json`
-   - `.devcontainer/on-create.sh`
-   - `.devcontainer/post-start.sh`
+   - `.devcontainer/Dockerfile` (`FROM ghcr.io/e-st/bellen:<version>`)
+   - `.devcontainer/devcontainer.json` (port **8000** only)
+   - `.devcontainer/post-start.sh` (start Canvas, then clone product repos)
+   - `.github/dependabot.yml` (image tag + Actions)
    - `.github/workflows/agent.md` (gh-aw stub)
 6. Workflow **`after-mastart-pr`** on the new repo comments a human checklist. It does **not** push workflow files (`GITHUB_TOKEN` is rejected). A human must still run `gh aw compile`.
 7. Human, on **`OWNER/something-org`**:
@@ -85,8 +87,9 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
    - Create labels **`agent`** and **`canvas`**.
    - `gh extension install github/gh-aw` then `gh aw compile`, commit the generated `.lock.yml`.
 8. **Code → Create codespace** on the control repo (not on a product repo).
-9. After start: **Ports → 8000** (label `agent-canvas`, visibility **org**).
+9. After start: **Ports → 8000** (label `agent-canvas`, visibility **org**). No other port is forwarded. Preview should open; if not, open that port.
 10. In Agent Canvas: enter `LOCAL_BACKEND_API_KEY`, set ACP to **`grok agent stdio`**, workspace **`/workspaces/platform`**.
+11. When Dependabot opens a PR that bumps `ghcr.io/e-st/bellen` in `.devcontainer/Dockerfile`, merge it and **rebuild** the Codespace.
 
 Revoke the initializer PAT after the PR exists. Codespaces uses your GitHub login to clone product repos you can already access.
 
@@ -132,8 +135,8 @@ The App must be installed on the control repo **and** each product repo so Actio
 
 ## 8. Security
 
-- **Thin control image** — `mcr.microsoft.com/devcontainers/base:ubuntu` plus the GitHub CLI feature only. No Node devcontainer feature, no product SDKs, no extra npm stack in the image definition. Node 22 is installed in `on-create.sh` solely to run Agent Canvas.
-- **Port 8000 visibility `org`** — not public. Still require `LOCAL_BACKEND_API_KEY`.
+- **Thin control image** — `ghcr.io/e-st/bellen`, built here from `mcr.microsoft.com/devcontainers/base:ubuntu` plus GitHub CLI, Node 22, uv, Grok Build, and `@openhands/agent-canvas`. No product SDKs. Dependabot on this repo updates those pins; Dependabot on each `*-org` repo bumps the image tag.
+- **Port 8000 only** — `forwardPorts: [8000]`, other ports `onAutoForward: ignore`. Visibility `org`. Still require `LOCAL_BACKEND_API_KEY` (`--public`).
 - **GitHub App least privilege** — only the control repo and its product repos; contents, issues, and pull requests. No org-wide install unless you intend that.
 - **Initializer PAT** — fine-grained, one repo, Contents + Pull requests, short-lived. This Pages form never stores it; requests go to `api.github.com` only.
 - **Do not commit** `.env` or `*.pem`. See `.gitignore`.
@@ -147,13 +150,20 @@ bellen/
 ├── LICENSE                                ← MIT, Copyright (c) 2025-2026 e-St (same as e-St/fspure)
 ├── NOTICE                                 ← copyright + MIT pointer
 ├── .gitignore                             ← .env, *.pem, node_modules
+├── image/
+│   ├── Dockerfile                         ← control Codespace image
+│   ├── package.json                       ← pins @openhands/agent-canvas (Dependabot)
+│   └── VERSION                            ← ghcr.io/e-st/bellen tag
 ├── docs/
 │   ├── logo.jpg                           ← site mark (top of Pages)
 │   ├── index.html                         ← GitHub Pages initializer
 │   ├── legal.html                         ← license / contact / hosting
 │   └── privacy.html                       ← static site + PAT form
-└── .github/workflows/
-    └── after-mastart-pr.yml               ← checklist comment on init/* PRs (does not push workflow files)
+└── .github/
+    ├── dependabot.yml                     ← docker/npm for image/, Actions
+    └── workflows/
+        ├── after-mastart-pr.yml           ← checklist comment on init/* PRs
+        └── publish-image.yml              ← build/push ghcr.io/e-st/bellen
 ```
 
 Files the initializer writes live on **`OWNER/something-org`**, not here:
@@ -162,9 +172,10 @@ Files the initializer writes live on **`OWNER/something-org`**, not here:
 OWNER/something-org/
 ├── README.md                              ← short control-repo readme
 ├── AGENTS.md                              ← how to use that control repo
-├── .devcontainer/devcontainer.json        ← Ubuntu + github-cli; REPOS; port 8000
-├── .devcontainer/on-create.sh             ← Node 22, Grok Build, agent-canvas
-├── .devcontainer/post-start.sh            ← clone REPOS, start Canvas
+├── .devcontainer/Dockerfile               ← FROM ghcr.io/e-st/bellen:<version>
+├── .devcontainer/devcontainer.json        ← port 8000 only; REPOS; PLATFORM
+├── .devcontainer/post-start.sh            ← start Canvas, then clone REPOS
+├── .github/dependabot.yml                 ← image tag + Actions
 └── .github/workflows/agent.md             ← gh-aw stub (written by the initializer PAT)
 ```
 
