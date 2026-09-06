@@ -1,3 +1,5 @@
+![bellen](docs/logo.jpg)
+
 # bellen
 
 Public starter for a **multi-repo** working model: a thin control repo (`*-org`) plus separate product repos. Git is the shared disk.
