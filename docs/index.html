@@ -299,9 +299,15 @@
     catch (e) { return null; }
   }
 
+  function patNameNow() {
+    var d = new Date();
+    function two(n) { n = String(n); return n.length < 2 ? "0" + n : n; }
+    return String(d.getFullYear()) + two(d.getMonth() + 1) + two(d.getDate()) + two(d.getHours()) + two(d.getMinutes()) + two(d.getSeconds());
+  }
+
   function patCreateUrl(spec) {
     var q = new URLSearchParams();
-    q.set("name", ("bellen " + spec.name).slice(0, 40));
+    q.set("name", patNameNow());
     q.set("description", "Create init/control-canvas on " + spec.owner + "/" + spec.name + " from https://e-st.github.io/bellen/. Limit this token to that one repository. Workflows: write is required to add .github/workflows/agent.md.");
     q.set("target_name", spec.owner);
     q.set("expires_in", "7");
@@ -332,6 +338,11 @@
     refreshPatCreate();
   });
   repoInput.addEventListener("input", refreshPatCreate);
+  patCreateLink.addEventListener("click", function () {
+    var spec = tryControlSpec();
+    if (!spec) return;
+    this.href = patCreateUrl(spec);
+  });
   refreshProductPreview();
   refreshPatCreate();
 
