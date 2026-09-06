@@ -41,6 +41,7 @@ jobs:
             - [ ] Codespace on this control repo (image `ghcr.io/e-st/bellen`) → Ports **8000** only (`agent-canvas`, visibility org)
             - [ ] Agent Canvas ACP: `grok agent stdio` — workspace `/workspaces/platform`
             - [ ] Dependabot: allow version updates so image/tag bumps open PRs
+            - [ ] Later upgrades: Actions → **Update from bellen** → Run workflow (opens a PR; merge then rebuild the Codespace)
         run: |
           if [ ! -f .devcontainer/devcontainer.json ]; then
             echo "No .devcontainer/devcontainer.json; skip (template repo, not a control repo)."

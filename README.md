@@ -63,7 +63,7 @@ Do this on **https://github.com/e-St/bellen** (cannot be set from files):
 3. Confirm **https://e-st.github.io/bellen/** serves `docs/index.html`.
 4. Workflow **Publish control image** pushes `ghcr.io/e-st/bellen:<image/VERSION>`. The package must be **public** so `*-org` Codespaces can pull it.
 
-Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They do not inherit GitHub Pages, the template flag, or GHCR; those stay on bellen.
+Copies of this template inherit `.github/workflows/after-mastart-pr.yml` and `.github/workflows/update-from-bellen.yml` (Actions → **Update from bellen**). They do not inherit GitHub Pages, the template flag, or GHCR; those stay on bellen.
 
 ## 4. Each new project
 
@@ -80,6 +80,7 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
    - removes leftover `.devcontainer/on-create.sh` if present
    - `.github/dependabot.yml` (image tag + Actions)
    - `.github/workflows/agent.md` (gh-aw stub)
+   - `.github/workflows/update-from-bellen.yml` (**Update from bellen** button)
 6. Workflow **`after-mastart-pr`** on the new repo comments a human checklist. It does **not** push workflow files (`GITHUB_TOKEN` is rejected). A human must still run `gh aw compile`.
 7. Human, on **`OWNER/something-org`**:
    - Merge the PR.
@@ -90,7 +91,7 @@ Copies of this template inherit `.github/workflows/after-mastart-pr.yml`. They d
 8. **Code → Create codespace** on the control repo (not on a product repo).
 9. After start: **Ports → 8000** (label `agent-canvas`, visibility **org**). No other port is forwarded. Preview should open; if not, open that port.
 10. In Agent Canvas: enter `LOCAL_BACKEND_API_KEY`, set ACP to **`grok agent stdio`**, workspace **`/workspaces/platform`**.
-11. When Dependabot opens a PR that bumps `ghcr.io/e-st/bellen` in `.devcontainer/Dockerfile`, merge it and **rebuild** the Codespace.
+11. Later: in the control repo, **Actions → Update from bellen → Run workflow**. That opens a PR with the latest image and control files (keeps `containerEnv.REPOS`). Merge, then **rebuild** the Codespace.
 
 Revoke the initializer PAT after the PR exists. Codespaces uses your GitHub login to clone product repos you can already access.
 
@@ -155,6 +156,11 @@ bellen/
 │   ├── Dockerfile                         ← control Codespace image
 │   ├── package.json                       ← pins @openhands/agent-canvas (Dependabot)
 │   └── VERSION                            ← ghcr.io/e-st/bellen tag
+├── control/
+│   ├── apply-update.sh                    ← used by Update from bellen
+│   ├── render.py                          ← writes latest control files
+│   ├── post-start.sh
+│   └── dependabot.yml
 ├── docs/
 │   ├── logo.jpg                           ← site mark (top of Pages)
 │   ├── index.html                         ← GitHub Pages initializer
@@ -164,7 +170,8 @@ bellen/
     ├── dependabot.yml                     ← docker/npm for image/, Actions
     └── workflows/
         ├── after-mastart-pr.yml           ← checklist comment on init/* PRs
-        └── publish-image.yml              ← build/push ghcr.io/e-st/bellen
+        ├── publish-image.yml              ← build/push ghcr.io/e-st/bellen
+        └── update-from-bellen.yml         ← button: PR latest control files into *-org
 ```
 
 Files the initializer writes live on **`OWNER/something-org`**, not here:
@@ -177,7 +184,9 @@ OWNER/something-org/
 ├── .devcontainer/devcontainer.json        ← port 8000 only; REPOS; PLATFORM
 ├── .devcontainer/post-start.sh            ← start Canvas, then clone REPOS
 ├── .github/dependabot.yml                 ← image tag + Actions
-└── .github/workflows/agent.md             ← gh-aw stub (written by the initializer PAT)
+└── .github/workflows/
+    ├── agent.md                           ← gh-aw stub (written by the initializer PAT)
+    └── update-from-bellen.yml             ← Actions → Update from bellen
 ```
 
 ## License

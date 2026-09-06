@@ -197,7 +197,7 @@
           <button type="button" id="togglePat" style="margin-top:0;background:#57534e;">Show</button>
         </div>
       </div>
-      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, <code>.devcontainer/*</code> (image <code>ghcr.io/e-st/bellen</code>, port 8000 only), <code>.github/dependabot.yml</code>, and <code>.github/workflows/agent.md</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>. Workflows permission is required because GitHub treats <code>agent.md</code> as a workflow file.</p>
+      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, <code>.devcontainer/*</code> (image <code>ghcr.io/e-st/bellen</code>, port 8000 only), <code>.github/dependabot.yml</code>, <code>.github/workflows/agent.md</code>, and <code>.github/workflows/update-from-bellen.yml</code> (the <strong>Update from bellen</strong> button) on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>. Workflows permission is required because GitHub treats those as workflow files.</p>
       <button type="submit" id="go">Create PR</button>
     </form>
     <div id="status" class="status" hidden></div>
@@ -437,16 +437,18 @@
       "Thin **control** repo (`" + owner + "/" + name + "`). Product code is not here.",
       "Created from [bellen](https://github.com/e-St/bellen).",
       "",
+      "## Update from bellen",
+      "",
+      "[https://github.com/" + owner + "/" + name + "/actions/workflows/update-from-bellen.yml](https://github.com/" + owner + "/" + name + "/actions/workflows/update-from-bellen.yml) → **Run workflow**. That opens a PR with the latest control image and files. Your product repo list is kept. Merge, then rebuild the Codespace.",
+      "",
       "## Codespace",
       "",
-      "1. Code → Create codespace on `main` (after merge). Image: `ghcr.io/e-st/bellen`.",
+      "1. Code → Create codespace on `main` (after merge). Image: `" + IMAGE + "`.",
       "2. Wait for start (Agent Canvas on port 8000, then product clones).",
       "3. Ports → **8000** (`agent-canvas`, visibility org). Only this port is forwarded.",
       "4. Paste `LOCAL_BACKEND_API_KEY` in the Canvas UI (Codespace secret, or `$HOME/.openhands/local-backend-api-key` if unset).",
       "5. ACP command: `grok agent stdio`",
       "6. Workspace: `/workspaces/platform`",
-      "",
-      "Dependabot opens a PR when a new `ghcr.io/e-st/bellen` tag exists. Merge it and rebuild the Codespace.",
       "",
       "Product repos cloned there:",
       "",
@@ -540,6 +542,65 @@
     return lines.join("\n");
   }
 
+  function updateFromBellenYml() {
+    return [
+      "name: Update from bellen",
+      "",
+      "on:",
+      "  workflow_dispatch:",
+      "    inputs:",
+      "      bellen_ref:",
+      "        description: bellen git ref (branch or tag)",
+      "        default: main",
+      "        required: false",
+      "",
+      "run-name: Update from bellen (${{ inputs.bellen_ref || 'main' }})",
+      "",
+      "permissions:",
+      "  contents: write",
+      "  pull-requests: write",
+      "",
+      "jobs:",
+      "  update:",
+      "    if: github.event.repository.name != 'bellen'",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@v5",
+      "",
+      "      - name: Apply latest control files from bellen",
+      "        env:",
+      "          REF: ${{ inputs.bellen_ref || 'main' }}",
+      "        run: |",
+      "          git clone --depth 1 --branch \"$REF\" https://github.com/e-St/bellen.git \"$RUNNER_TEMP/bellen\"",
+      "          ROOT=\"$GITHUB_WORKSPACE\" BELLEN=\"$RUNNER_TEMP/bellen\" bash \"$RUNNER_TEMP/bellen/control/apply-update.sh\"",
+      "",
+      "      - name: Open or update PR",
+      "        env:",
+      "          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}",
+      "        run: |",
+      "          git config user.name \"github-actions[bot]\"",
+      "          git config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"",
+      "          git add -A",
+      "          if git diff --staged --quiet; then",
+      "            echo \"Already up to date with bellen.\"",
+      "            exit 0",
+      "          fi",
+      "          git checkout -B update/bellen",
+      "          git commit -m \"Update control Codespace from e-St/bellen\"",
+      "          git push -u origin update/bellen --force",
+      "          n=$(gh pr list --head update/bellen --state open --json number --jq '.[0].number // empty')",
+      "          if [ -n \"$n\" ]; then",
+      "            echo \"Updated PR #$n\"",
+      "            gh pr view \"$n\" --web || true",
+      "          else",
+      "            gh pr create \\",
+      "              --title \"Update control Codespace from bellen\" \\",
+      "              --body \"Applies the latest files from [e-St/bellen](https://github.com/e-St/bellen) (image, devcontainer, post-start, Dependabot, AGENTS, README). Keeps \\`containerEnv.REPOS\\`. Merge, then **rebuild** the Codespace (not Restart).\"",
+      "          fi",
+      ""
+    ].join("\n");
+  }
+
   function filesFor(owner, name, repos) {
     var dc = {
       name: "control",
@@ -568,6 +629,7 @@
       { path: ".devcontainer/post-start.sh", mode: "100755", content: postStartSh() },
       { path: ".github/dependabot.yml", mode: "100644", content: dependabotYml() },
       { path: ".github/workflows/agent.md", mode: "100644", content: agentMd(repos) },
+      { path: ".github/workflows/update-from-bellen.yml", mode: "100644", content: updateFromBellenYml() },
       { path: ".devcontainer/on-create.sh", mode: "100644", sha: null }
     ];
   }
