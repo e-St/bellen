@@ -55,8 +55,11 @@
       padding: 1.25rem 1.25rem 1.5rem;
       margin-top: 1.5rem;
     }
-    label { display: block; font-weight: 600; margin: 1rem 0 0.35rem; }
+    .field { margin-top: 1rem; }
+    label { display: block; font-weight: 600; margin: 0 0 0.35rem; }
     .hint { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+    .preview { margin: 0.45rem 0 0; font: 0.88rem/1.4 var(--mono); color: var(--muted); white-space: pre-wrap; }
+    .preview.err { color: var(--err); }
     input[type="text"], input[type="password"], textarea {
       width: 100%;
       font: 15px/1.4 var(--mono);
@@ -114,25 +117,32 @@
       <li>List product repos and a fine-grained PAT (Contents + Pull requests, <strong>that repo only</strong>).</li>
       <li>Create branch <code>init/control-canvas</code> and a PR. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
     </ol>
-    <form id="form">
-      <label>
-        Control repo
-        <span class="hint"><code>owner/name</code> — the new <code>*-org</code> repo, not a product repo.</span>
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="repo">
+          Control repo
+          <span class="hint"><code>owner/name</code> — the new <code>*-org</code> repo, not a product repo.</span>
+        </label>
         <input id="repo" type="text" autocomplete="off" spellcheck="false" placeholder="OWNER/something-org" required>
-      </label>
-      <label>
-        Product repos
-        <span class="hint">One <code>owner/name</code> per line. Cloned into <code>/workspaces/platform</code>.</span>
+      </div>
+      <div class="field">
+        <label for="products">
+          Product repos
+          <span class="hint">One <code>owner/name</code> per line. Cloned into <code>/workspaces/platform</code>.</span>
+        </label>
         <textarea id="products" placeholder="OWNER/something&#10;OWNER/something-lib"></textarea>
-      </label>
-      <label>
-        Fine-grained PAT
-        <span class="hint">Contents + Pull requests on the control repo only. Sent to <code>api.github.com</code> from this browser; not stored.</span>
+        <p id="productPreview" class="preview" hidden></p>
+      </div>
+      <div class="field">
+        <label for="pat">
+          Fine-grained PAT
+          <span class="hint">Contents + Pull requests on the control repo only. Sent to <code>api.github.com</code> from this browser; not stored. <strong>Show</strong> reveals the token, it does not create the PR.</span>
+        </label>
         <div class="row-inline">
           <input id="pat" type="password" autocomplete="off" required>
           <button type="button" id="togglePat" style="margin-top:0;background:#57534e;">Show</button>
         </div>
-      </label>
+      </div>
       <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, and <code>.devcontainer/*</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>.</p>
       <button type="submit" id="go">Create PR</button>
     </form>
@@ -155,11 +165,15 @@
   var repoInput = document.getElementById("repo");
   var productsInput = document.getElementById("products");
   var patInput = document.getElementById("pat");
+  var productPreview = document.getElementById("productPreview");
 
-  document.getElementById("togglePat").addEventListener("click", function () {
-    var show = patInput.type === "password";
-    patInput.type = show ? "text" : "password";
-    this.textContent = show ? "Hide" : "Show";
+  document.getElementById("togglePat").addEventListener("click", function (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    var reveal = patInput.type === "password";
+    patInput.type = reveal ? "text" : "password";
+    this.textContent = reveal ? "Hide" : "Show";
+    patInput.focus();
   });
 
   var params = new URLSearchParams(location.search);
@@ -173,11 +187,11 @@
     statusEl.textContent = msg;
   }
 
-  function parseOwnerName(raw) {
+  function parseOwnerName(raw, kind) {
     var s = String(raw || "").trim();
     s = s.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/, "").replace(/\/$/, "");
     var m = s.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
-    if (!m) throw new Error("Control repo must be owner/name.");
+    if (!m) throw new Error((kind || "Repo") + " must be owner/name (got " + JSON.stringify(String(raw || "").trim() || "(empty)") + ").");
     return { owner: m[1], name: m[2] };
   }
 
@@ -185,17 +199,45 @@
     var lines = String(raw || "").split(/\r?\n/);
     var out = [];
     var seen = {};
+    var errors = [];
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i].trim();
       if (!line || line.charAt(0) === "#") continue;
-      var spec = parseOwnerName(line);
-      var id = spec.owner + "/" + spec.name;
-      if (seen[id]) continue;
-      seen[id] = true;
-      out.push(id);
+      try {
+        var spec = parseOwnerName(line, "Product repo");
+        var id = spec.owner + "/" + spec.name;
+        if (seen[id]) continue;
+        seen[id] = true;
+        out.push(id);
+      } catch (e) {
+        errors.push("Line " + (i + 1) + ": " + e.message);
+      }
     }
-    return out;
+    return { repos: out, errors: errors };
   }
+
+  function refreshProductPreview() {
+    var parsed = parseProducts(productsInput.value);
+    if (!productsInput.value.trim()) {
+      productPreview.hidden = true;
+      productPreview.textContent = "";
+      return parsed;
+    }
+    productPreview.hidden = false;
+    if (parsed.errors.length) {
+      productPreview.className = "preview err";
+      productPreview.textContent = parsed.errors.join("\n");
+    } else if (!parsed.repos.length) {
+      productPreview.className = "preview";
+      productPreview.textContent = "No product repos yet.";
+    } else {
+      productPreview.className = "preview";
+      productPreview.textContent = "Will clone:\n" + parsed.repos.map(function (r) { return "  " + r; }).join("\n");
+    }
+    return parsed;
+  }
+  productsInput.addEventListener("input", refreshProductPreview);
+  refreshProductPreview();
 
   async function gh(path, token, opts) {
     opts = opts || {};
@@ -387,10 +429,12 @@
       log(lines.join("\n"));
     }
     try {
-      var spec = parseOwnerName(repoInput.value);
-      var repos = parseProducts(productsInput.value);
+      var spec = parseOwnerName(repoInput.value, "Control repo");
+      var parsed = refreshProductPreview();
+      if (parsed.errors.length) throw new Error(parsed.errors.join(" "));
+      var repos = parsed.repos;
       var token = patInput.value.trim();
-      if (!token) throw new Error("PAT is required.");
+      if (!token) throw new Error("PAT is required. Paste it in Fine-grained PAT, then Create PR. Show only reveals the token.");
 
       step("Reading " + spec.owner + "/" + spec.name + " …");
       var repo = await gh("/repos/" + spec.owner + "/" + spec.name, token);
