@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bellen — initialize a control repo</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --card: #fffdf8;
+      --line: #d6cfc3;
+      --accent: #0f6b4c;
+      --accent-ink: #fff;
+      --warn-bg: #fde8d0;
+      --err: #9f1239;
+      --ok: #0f6b4c;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.5 var(--sans);
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 0.35rem; }
+    .lede { color: var(--muted); margin: 0 0 1.5rem; }
+    ol.steps { padding-left: 1.25rem; color: var(--muted); }
+    ol.steps li { margin: 0.35rem 0; }
+    ol.steps code, label code, p code, .status code {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      background: #ece6db;
+      padding: 0.05em 0.35em;
+      border-radius: 3px;
+    }
+    form {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 1.25rem 1.25rem 1.5rem;
+      margin-top: 1.5rem;
+    }
+    label { display: block; font-weight: 600; margin: 1rem 0 0.35rem; }
+    .hint { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+    input[type="text"], input[type="password"], textarea {
+      width: 100%;
+      font: 15px/1.4 var(--mono);
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+    }
+    textarea { min-height: 7rem; resize: vertical; }
+    .row-inline { display: flex; gap: 0.5rem; align-items: center; }
+    .row-inline input { flex: 1; }
+    button {
+      margin-top: 1.25rem;
+      background: var(--accent);
+      color: var(--accent-ink);
+      border: 0;
+      border-radius: 6px;
+      padding: 0.7rem 1.1rem;
+      font: 600 1rem var(--sans);
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .warn {
+      background: var(--warn-bg);
+      border-radius: 6px;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.92rem;
+      margin-top: 1rem;
+    }
+    .status {
+      margin-top: 1.25rem;
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      white-space: pre-wrap;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+    .status.ok { border-color: var(--ok); }
+    .status.err { border-color: var(--err); color: var(--err); }
+    .status a { color: var(--accent); word-break: break-all; }
+    footer { margin-top: 2rem; color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>bellen</h1>
+    <p class="lede">Initialize a thin control repo (<code>*-org</code>) with Agent Canvas + Grok Build. Product code stays in other repos.</p>
+    <ol class="steps">
+      <li>Create <code>OWNER/something-org</code> from the <a href="https://github.com/e-St/bellen">e-St/bellen</a> template.</li>
+      <li>Open this page as <code>?repo=OWNER/something-org</code>.</li>
+      <li>List product repos and a fine-grained PAT (Contents + Pull requests, <strong>that repo only</strong>).</li>
+      <li>Create branch <code>init/control-canvas</code> and a PR. Then merge, secrets, App, labels, <code>gh aw compile</code>.</li>
+    </ol>
+    <form id="form">
+      <label>
+        Control repo
+        <span class="hint"><code>owner/name</code> — the new <code>*-org</code> repo, not a product repo.</span>
+        <input id="repo" type="text" autocomplete="off" spellcheck="false" placeholder="OWNER/something-org" required>
+      </label>
+      <label>
+        Product repos
+        <span class="hint">One <code>owner/name</code> per line. Cloned into <code>/workspaces/platform</code>.</span>
+        <textarea id="products" placeholder="OWNER/something&#10;OWNER/something-lib"></textarea>
+      </label>
+      <label>
+        Fine-grained PAT
+        <span class="hint">Contents + Pull requests on the control repo only. Sent to <code>api.github.com</code> from this browser; not stored.</span>
+        <div class="row-inline">
+          <input id="pat" type="password" autocomplete="off" required>
+          <button type="button" id="togglePat" style="margin-top:0;background:#57534e;">Show</button>
+        </div>
+      </label>
+      <p class="warn">This writes <code>AGENTS.md</code>, a short <code>README.md</code>, and <code>.devcontainer/*</code> on branch <code>init/control-canvas</code>. It does not merge and does not push to <code>main</code>.</p>
+      <button type="submit" id="go">Create PR</button>
+    </form>
+    <div id="status" class="status" hidden></div>
+    <footer>
+      Template and docs: <a href="https://github.com/e-St/bellen">github.com/e-St/bellen</a>
+    </footer>
+  </main>
+  <script>
+(function () {
+  var BRANCH = "init/control-canvas";
+  var API = "https://api.github.com";
+
+  var form = document.getElementById("form");
+  var statusEl = document.getElementById("status");
+  var go = document.getElementById("go");
+  var repoInput = document.getElementById("repo");
+  var productsInput = document.getElementById("products");
+  var patInput = document.getElementById("pat");
+
+  document.getElementById("togglePat").addEventListener("click", function () {
+    var show = patInput.type === "password";
+    patInput.type = show ? "text" : "password";
+    this.textContent = show ? "Hide" : "Show";
+  });
+
+  var params = new URLSearchParams(location.search);
+  var q = params.get("repo") || "";
+  q = q.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/, "").replace(/\/$/, "");
+  if (q) repoInput.value = q;
+
+  function log(msg, kind) {
+    statusEl.hidden = false;
+    statusEl.className = "status" + (kind ? " " + kind : "");
+    statusEl.textContent = msg;
+  }
+
+  function parseOwnerName(raw) {
+    var s = String(raw || "").trim();
+    s = s.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/, "").replace(/\/$/, "");
+    var m = s.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
+    if (!m) throw new Error("Control repo must be owner/name.");
+    return { owner: m[1], name: m[2] };
+  }
+
+  function parseProducts(raw) {
+    var lines = String(raw || "").split(/\r?\n/);
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line || line.charAt(0) === "#") continue;
+      var spec = parseOwnerName(line);
+      var id = spec.owner + "/" + spec.name;
+      if (seen[id]) continue;
+      seen[id] = true;
+      out.push(id);
+    }
+    return out;
+  }
+
+  async function gh(path, token, opts) {
+    opts = opts || {};
+    var headers = {
+      Accept: "application/vnd.github+json",
+      Authorization: "Bearer " + token,
+      "X-GitHub-Api-Version": "2022-11-28"
+    };
+    if (opts.body) headers["Content-Type"] = "application/json";
+    var res = await fetch(API + path, {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    var text = await res.text();
+    var data = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch (e) { data = { message: text }; }
+    }
+    if (!res.ok) {
+      var msg = (data && data.message) ? data.message : (res.status + " " + res.statusText);
+      var err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  function onCreateSh() {
+    return [
+      "#!/usr/bin/env bash",
+      "sudo apt-get update",
+      "sudo apt-get install -y ca-certificates curl gnupg",
+      "sudo mkdir -p /etc/apt/keyrings",
+      "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg",
+      "echo \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main\" | sudo tee /etc/apt/sources.list.d/nodesource.list",
+      "sudo apt-get update",
+      "sudo apt-get install -y nodejs",
+      "curl -fsSL https://x.ai/cli/install.sh | bash",
+      "sudo npm i -g @openhands/agent-canvas",
+      ""
+    ].join("\n");
+  }
+
+  function postStartSh() {
+    return [
+      "#!/usr/bin/env bash",
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "mkdir -p \"$PLATFORM\"",
+      "printf 'repos:\\n' > \"$PLATFORM/repos.yml\"",
+      "IFS=','",
+      "for spec in $REPOS; do",
+      "  spec=$(printf '%s' \"$spec\" | sed 's/^ *//;s/ *$//')",
+      "  [ -z \"$spec\" ] && continue",
+      "  printf '  - %s\\n' \"$spec\" >> \"$PLATFORM/repos.yml\"",
+      "  dest=\"$PLATFORM/${spec##*/}\"",
+      "  [ -d \"$dest/.git\" ] || gh repo clone \"$spec\" \"$dest\"",
+      "done",
+      "agent-canvas --public --port 8000",
+      ""
+    ].join("\n");
+  }
+
+  function controlReadme(owner, name, repos) {
+    var list = repos.length
+      ? repos.map(function (r) { return "- `" + r + "`"; }).join("\n")
+      : "- (none listed yet)";
+    return [
+      "# " + name,
+      "",
+      "Thin **control** repo (`" + owner + "/" + name + "`). Product code is not here.",
+      "Created from [bellen](https://github.com/e-St/bellen).",
+      "",
+      "## Codespace",
+      "",
+      "1. Code → Create codespace on `main` (after merge).",
+      "2. Wait for create (Node 22, Grok Build, Agent Canvas) and start (clone product repos, Canvas).",
+      "3. Ports → **8000** (`agent-canvas`, visibility org).",
+      "4. Paste `LOCAL_BACKEND_API_KEY` in the Canvas UI.",
+      "5. ACP command: `grok agent stdio`",
+      "6. Workspace: `/workspaces/platform`",
+      "",
+      "Product repos cloned there:",
+      "",
+      list,
+      "",
+      "## Labels",
+      "",
+      "| Label | Meaning |",
+      "| --- | --- |",
+      "| `agent` | Unattended gh-aw on Actions. |",
+      "| `canvas` | Interactive Canvas in this Codespace. |",
+      "",
+      "Never apply both to the same issue. File issues on this control repo.",
+      "",
+      "## Inspect",
+      "",
+      "Do not prompt in a product editor. Open the product repo's own Codespace:",
+      "",
+      "`https://codespaces.new/OWNER/PRODUCT?ref=agent/…`",
+      ""
+    ].join("\n");
+  }
+
+  function controlAgents(owner, name, repos) {
+    var list = repos.length
+      ? repos.map(function (r) { return "- `" + r + "`"; }).join("\n")
+      : "- (none listed in `containerEnv.REPOS`)";
+    return [
+      "# " + name,
+      "",
+      "This is the thin control repo `" + owner + "/" + name + "`.",
+      "Product code lives in separate repos. Git is the shared disk.",
+      "",
+      "On Codespace start, product repos are cloned under `/workspaces/platform` from `containerEnv.REPOS`:",
+      "",
+      list,
+      "",
+      "## Labels",
+      "",
+      "- `agent` — unattended work via gh-aw on GitHub Actions. Never combine with `canvas`.",
+      "- `canvas` — interactive work in this control Codespace (Agent Canvas). Never combine with `agent`.",
+      "",
+      "## Interactive (`canvas`)",
+      "",
+      "1. Codespace on **this** repo (not a product repo).",
+      "2. Port 8000 — Agent Canvas, visibility org.",
+      "3. ACP: `grok agent stdio`",
+      "4. Workspace: `/workspaces/platform`",
+      "",
+      "Do not prompt inside a product-repo editor. Humans inspect:",
+      "",
+      "`https://codespaces.new/OWNER/PRODUCT?ref=agent/…`",
+      "",
+      "## Unattended (`agent`)",
+      "",
+      "Issues labeled `agent` on this repo run `.github/workflows/agent.md` after a human has run `gh aw compile`.",
+      "Push to the product remotes. Open PRs there.",
+      ""
+    ].join("\n");
+  }
+
+  function filesFor(owner, name, repos) {
+    var dc = {
+      image: "mcr.microsoft.com/devcontainers/base:ubuntu",
+      features: {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+      },
+      containerEnv: {
+        REPOS: repos.join(","),
+        PLATFORM: "/workspaces/platform"
+      },
+      forwardPorts: [8000],
+      portsAttributes: {
+        "8000": {
+          label: "agent-canvas",
+          onAutoForward: "notify",
+          visibility: "org"
+        }
+      },
+      onCreateCommand: "bash .devcontainer/on-create.sh",
+      postStartCommand: "bash .devcontainer/post-start.sh"
+    };
+    return [
+      { path: "AGENTS.md", mode: "100644", content: controlAgents(owner, name, repos) },
+      { path: "README.md", mode: "100644", content: controlReadme(owner, name, repos) },
+      { path: ".devcontainer/devcontainer.json", mode: "100644", content: JSON.stringify(dc, null, 2) + "\n" },
+      { path: ".devcontainer/on-create.sh", mode: "100755", content: onCreateSh() },
+      { path: ".devcontainer/post-start.sh", mode: "100755", content: postStartSh() }
+    ];
+  }
+
+  async function branchSha(owner, name, branch, token) {
+    try {
+      var b = await gh("/repos/" + owner + "/" + name + "/branches/" + encodeURIComponent(branch), token);
+      return b.commit.sha;
+    } catch (e) {
+      if (e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  form.addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    go.disabled = true;
+    var lines = [];
+    function step(s) {
+      lines.push(s);
+      log(lines.join("\n"));
+    }
+    try {
+      var spec = parseOwnerName(repoInput.value);
+      var repos = parseProducts(productsInput.value);
+      var token = patInput.value.trim();
+      if (!token) throw new Error("PAT is required.");
+
+      step("Reading " + spec.owner + "/" + spec.name + " …");
+      var repo = await gh("/repos/" + spec.owner + "/" + spec.name, token);
+      var base = repo.default_branch || "main";
+
+      var existing = await branchSha(spec.owner, spec.name, BRANCH, token);
+      var parentSha;
+      if (existing) {
+        parentSha = existing;
+        step("Branch " + BRANCH + " exists; adding a commit.");
+      } else {
+        var baseBranch = await gh("/repos/" + spec.owner + "/" + spec.name + "/branches/" + encodeURIComponent(base), token);
+        parentSha = baseBranch.commit.sha;
+        step("Base `" + base + "` @ " + parentSha.slice(0, 7));
+      }
+
+      var parent = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/commits/" + parentSha, token);
+      var treeFiles = filesFor(spec.owner, spec.name, repos).map(function (f) {
+        return { path: f.path, mode: f.mode, type: "blob", content: f.content };
+      });
+      step("Creating tree (" + treeFiles.length + " files) …");
+      var tree = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/trees", token, {
+        method: "POST",
+        body: { base_tree: parent.tree.sha, tree: treeFiles }
+      });
+      var commit = await gh("/repos/" + spec.owner + "/" + spec.name + "/git/commits", token, {
+        method: "POST",
+        body: {
+          message: "Initialize control Codespace (Agent Canvas + Grok Build)",
+          tree: tree.sha,
+          parents: [parentSha]
+        }
+      });
+
+      if (existing) {
+        try {
+          await gh("/repos/" + spec.owner + "/" + spec.name + "/git/refs/heads/" + BRANCH, token, {
+            method: "PATCH",
+            body: { sha: commit.sha }
+          });
+        } catch (e) {
+          if (e.status !== 404) throw e;
+          await gh("/repos/" + spec.owner + "/" + spec.name + "/git/refs/" + encodeURIComponent("heads/" + BRANCH), token, {
+            method: "PATCH",
+            body: { sha: commit.sha }
+          });
+        }
+      } else {
+        await gh("/repos/" + spec.owner + "/" + spec.name + "/git/refs", token, {
+          method: "POST",
+          body: { ref: "refs/heads/" + BRANCH, sha: commit.sha }
+        });
+      }
+      step("Pushed " + BRANCH + " @ " + commit.sha.slice(0, 7));
+
+      var pulls = await gh(
+        "/repos/" + spec.owner + "/" + spec.name + "/pulls?head=" + encodeURIComponent(spec.owner + ":" + BRANCH) + "&state=open",
+        token
+      );
+      var url;
+      if (pulls && pulls.length) {
+        url = pulls[0].html_url;
+        step("Open PR already exists.");
+      } else {
+        var body = [
+          "Adds the thin control Codespace (Agent Canvas + Grok Build).",
+          "",
+          "Product repos in `containerEnv.REPOS`:",
+          "",
+          (repos.length ? repos.map(function (r) { return "- `" + r + "`"; }).join("\n") : "- (none)"),
+          "",
+          "After this PR opens, workflow `after-mastart-pr` should add `.github/workflows/agent.md` (gh-aw stub) and a human checklist.",
+          "",
+          "Do not merge until you have read that checklist. This PR does not set repository secrets or the GitHub App."
+        ].join("\n");
+        var pr = await gh("/repos/" + spec.owner + "/" + spec.name + "/pulls", token, {
+          method: "POST",
+          body: {
+            title: "Initialize control Codespace",
+            head: BRANCH,
+            base: base,
+            body: body
+          }
+        });
+        url = pr.html_url;
+      }
+
+      if (!/^https:\/\/github\.com\//.test(url)) throw new Error("Unexpected PR URL");
+      lines.push("");
+      lines.push("PR: " + url);
+      statusEl.hidden = false;
+      statusEl.className = "status ok";
+      statusEl.textContent = "";
+      statusEl.appendChild(document.createTextNode(lines.slice(0, -1).join("\n") + "\n\nPR: "));
+      var a = document.createElement("a");
+      a.href = url;
+      a.textContent = url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      statusEl.appendChild(a);
+    } catch (e) {
+      log((lines.length ? lines.join("\n") + "\n\n" : "") + "Error: " + (e && e.message ? e.message : e), "err");
+    } finally {
+      go.disabled = false;
+    }
+  });
+})();
+  </script>
+</body>
+</html>

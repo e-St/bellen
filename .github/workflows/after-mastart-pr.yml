@@ -1,0 +1,94 @@
+name: after-mastart-pr
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - ".devcontainer/**"
+      - "AGENTS.md"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  amend:
+    if: startsWith(github.head_ref, 'init/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: gh-aw stub and checklist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          CHECKLIST: |
+            <!-- bellen-checklist -->
+            ## Human checklist
+
+            `after-mastart-pr` added `.github/workflows/agent.md` (gh-aw **source**). It is not compiled yet.
+
+            - [ ] Merge this PR into `main`
+            - [ ] Secrets: `XAI_API_KEY`, `LOCAL_BACKEND_API_KEY`, GitHub App id + private key (`APP_ID`, `APP_PRIVATE_KEY`)
+            - [ ] Install the GitHub App on **this control repo and every product repo** (least privilege: contents, issues, pull requests)
+            - [ ] Create labels `agent` and `canvas`
+            - [ ] `gh extension install github/gh-aw && gh aw compile` — commit the `.lock.yml`
+            - [ ] Codespace on this control repo → Ports **8000** (label `agent-canvas`, visibility org)
+            - [ ] Agent Canvas ACP: `grok agent stdio` — workspace `/workspaces/platform`
+        run: |
+          if [ ! -f .devcontainer/devcontainer.json ]; then
+            echo "No .devcontainer/devcontainer.json; skip (template repo, not a control repo)."
+            exit 0
+          fi
+
+          REPOS=$(jq -r '.containerEnv.REPOS // ""' .devcontainer/devcontainer.json)
+
+          mkdir -p .github/workflows
+          {
+            echo "---"
+            echo "# gh-aw source stub. Human: install the extension, choose an engine, set secrets, then run: gh aw compile"
+            echo "on:"
+            echo "  issues:"
+            echo "    types: [labeled]"
+            echo "permissions: read-all"
+            echo "---"
+            echo
+            echo "# Agent"
+            echo
+            echo "Run only when the issue has the \`agent\` label and does **not** have \`canvas\`."
+            echo "Never apply both labels."
+            echo
+            echo "Work the issue in the product repositories. Git is the shared disk."
+            echo "Open a PR on the product repo (branch like \`agent/<n>-short-slug\`)."
+            echo "Do not treat clones under \`/workspaces/platform\` as a substitute for those remotes."
+            echo
+            echo "Product repos:"
+            echo
+            if [ -z "$REPOS" ]; then
+              echo "- (none listed in containerEnv.REPOS)"
+            else
+              echo "$REPOS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' | sed 's/^/- /' || true
+            fi
+            echo
+            echo "Human: \`gh extension install github/gh-aw && gh aw compile\`"
+          } > .github/workflows/agent.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/agent.md
+          if git diff --cached --quiet; then
+            echo "agent.md unchanged"
+          else
+            git commit -m "Add gh-aw agent stub"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
+
+          if gh api "repos/${{ github.repository }}/issues/${PR}/comments" --jq '.[].body' | grep -q '<!-- bellen-checklist -->'; then
+            echo "checklist comment already present"
+          else
+            gh pr comment "$PR" --body "$CHECKLIST"
+          fi
